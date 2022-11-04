@@ -1,0 +1,210 @@
+---
+title: "Viz"
+format: html
+editor: visual
+---
+
+Load libraries.
+
+```{r}
+#| include: false
+library(tidyverse)
+library(gt)
+library(gtExtras)
+library(ggthemes)
+```
+
+Read in the betting odds data (from Bovada).
+
+```{r}
+bets = read_csv("odds.csv")
+```
+
+A little bit of data prep.
+
+```{r}
+bets = bets %>% mutate(Group_Long = str_c("Group ", Group)) %>%
+  select(-Group)
+```
+
+Creating a table using the "gt" package.
+
+```{r}
+bets %>% 
+  gt(
+    groupname_col = "Group_Long",
+    rowname_col = "Team"
+  ) %>% 
+  fmt_percent(
+    columns = c(`1st`, `2nd`, `3rd`,`4th`),
+    decimals = 0) %>% 
+  data_color(
+    columns = c(`1st`, `2nd`),
+    colors = scales::col_numeric(
+      c("white", "green3"),
+        domain = c(0,1)
+        )) %>%
+  data_color(
+    columns = c(`3rd`,`4th`),
+    colors = scales::col_numeric(
+      c("white", "red"),
+        domain = c(0,1)
+        ))
+  
+```
+
+The default table is very long, so let's create two tables and put them side-by-side.
+
+The first table is for Groups A, B, C, D and the second for the remaining groups.
+
+```{r}
+tab1 = bets %>% filter(Group_Long %in% c("Group A", "Group B", "Group C", "Group D")) %>% 
+  gt(
+    groupname_col = "Group_Long",
+    rowname_col = "Team"
+  ) %>% 
+  fmt_percent(
+    columns = c(`1st`, `2nd`, `3rd`,`4th`),
+    decimals = 0) %>% 
+  data_color(
+    columns = c(`1st`, `2nd`),
+    colors = scales::col_numeric(
+      c("white", "green3"),
+        domain = c(0,1)
+        )) %>%
+  data_color(
+    columns = c(`3rd`,`4th`),
+    colors = scales::col_numeric(
+      c("white", "red"),
+        domain = c(0,1)
+        )) 
+```
+
+```{r}
+tab2 = bets %>% filter(Group_Long %in% c("Group E", "Group F", "Group G", "Group H")) %>% 
+  gt(
+    groupname_col = "Group_Long",
+    rowname_col = "Team"
+  ) %>% 
+  fmt_percent(
+    columns = c(`1st`, `2nd`, `3rd`,`4th`),
+    decimals = 0) %>% 
+  cols_align(
+    align = c("center"),
+    columns = everything()
+        ) %>%
+  data_color(
+    columns = c(`1st`, `2nd`),
+    colors = scales::col_numeric(
+      c("white", "green3"),
+        domain = c(0,1)
+        )) %>%
+  data_color(
+    columns = c(`3rd`,`4th`),
+    colors = scales::col_numeric(
+      c("white", "red"),
+        domain = c(0,1)
+        )) 
+```
+
+Create a single table from the two tables.
+
+```{r}
+listed_tables <- list(tab1, tab2)
+
+gt_two_column_layout(listed_tables) 
+```
+
+Save this table as a PNG file.
+
+```{r}
+gt_two_column_layout(listed_tables, output = "save",
+                     filename = "two_col.png",
+                      vwidth = 600, vheight = 1275)
+```
+
+If you prefer to make the cell values text transparent, you can use "00" in front of the cell text color hex code.
+
+```{r}
+tab1 = bets %>% filter(Group_Long %in% c("Group A", "Group B", "Group C", "Group D")) %>% 
+  gt(
+    groupname_col = "Group_Long",
+    rowname_col = "Team"
+  ) %>% 
+  fmt_percent(
+    columns = c(`1st`, `2nd`, `3rd`,`4th`),
+    decimals = 0) %>% 
+  data_color(
+    columns = c(`1st`, `2nd`),
+    colors = scales::col_numeric(
+      c("white", "green3"),
+        domain = c(0,1)
+        )) %>%
+  data_color(
+    columns = c(`3rd`,`4th`),
+    colors = scales::col_numeric(
+      c("white", "red"),
+        domain = c(0,1)
+        )) %>%
+  tab_style(
+    style = cell_text(color = "#00000000"),
+    locations = cells_body(columns = everything()))
+
+tab2 = bets %>% filter(Group_Long %in% c("Group E", "Group F", "Group G", "Group H")) %>% 
+  gt(
+    groupname_col = "Group_Long",
+    rowname_col = "Team"
+  ) %>% 
+  fmt_percent(
+    columns = c(`1st`, `2nd`, `3rd`,`4th`),
+    decimals = 0) %>% 
+  cols_align(
+    align = c("center"),
+    columns = everything()
+        ) %>%
+  data_color(
+    columns = c(`1st`, `2nd`),
+    colors = scales::col_numeric(
+      c("white", "green3"),
+        domain = c(0,1)
+        )) %>%
+  data_color(
+    columns = c(`3rd`,`4th`),
+    colors = scales::col_numeric(
+      c("white", "red"),
+        domain = c(0,1)
+        )) %>%
+  tab_style(
+    style = cell_text(color = "#00000000"),
+    locations = cells_body(columns = everything())) 
+
+listed_tables <- list(tab1, tab2)
+
+gt_two_column_layout(listed_tables) 
+
+gt_two_column_layout(listed_tables, output = "save",
+                     filename = "two_col2.png",
+                      vwidth = 600, vheight = 1275)
+```
+
+Experiment with creating stacked bar charts.
+
+Need to pivot data to long format first.
+
+```{r}
+bets_long = bets %>% pivot_longer(c(`1st`,`2nd`,`3rd`,`4th`),names_to = "Place", values_to = "Prob")
+```
+
+```{r}
+ggplot(bets_long, aes(x=as_factor(Team),y=Prob,fill=Place)) + 
+  geom_col() + geom_hline(yintercept=0.5,linetype="dashed") + 
+  facet_wrap(~Group_Long, nrow = 4, scales = "free_x") +
+  scale_fill_manual(values=c("green4", "lightgreen", "lightpink", "red3")) + 
+  xlab("Team") + ylab("Probability") + theme_few()
+```
+
+Save the chart to a PNG file.
+
+```{r}
+ggsave("facets.png", width = 8, height = 5)
+```
